@@ -1,0 +1,7 @@
+# Output interface
+Pass_Packets = "proto tcp from en1 to any port {80, 443}"
+RDR_Packets = "proto tcp from en1 to any port {80, 443} -> 127.0.0.1 port 11235"
+# Step "2". Rdr those same packets that were routed to lo0 below
+rdr on lo0 $RDR_Packets
+# Step "1". Route new IPv4 TCP connections leaving $Out to lo0
+pass out on en1 route-to lo0 inet $Pass_Packets user = nobody keep state
