@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	_ "io"
 	"io/ioutil"
 	"net"
 	"net/http"
