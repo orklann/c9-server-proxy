@@ -14,6 +14,20 @@ import (
 	"strconv"
 )
 
+// Connection Status
+const (
+	Connected = 1
+	NoData    = 2
+	Closed    = 3
+)
+
+// Connection actions
+const (
+	Connect = 1
+	Get     = 2
+	Close   = 3
+)
+
 const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.96 Safari/537.36"
 
 var (
