@@ -33,6 +33,7 @@ const (
 )
 
 func lookupStatus(s string) string {
+	fmt.Printf("Status: %s\n", s)
 	if s == Connect {
 		return "Connected"
 	} else if s == NoData {
@@ -79,7 +80,7 @@ func (h *HTTPClientConn) connect() string {
 	}
 
 	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:])))
-	return lookupStatus(string(rData[:]))
+	return string(rData[:])
 }
 
 func (h *HTTPClientConn) send(d []byte) string {
@@ -92,8 +93,8 @@ func (h *HTTPClientConn) send(d []byte) string {
 		fmt.Println("Error response from HTTP Server")
 	}
 
-	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:])))
-	return lookupStatus(string(rData[:]))
+	fmt.Printf("Remote Response: %s\n", string(rData[:]))
+	return string(rData[:])
 }
 
 func (h *HTTPClientConn) close() {
@@ -108,31 +109,38 @@ func (h *HTTPClientConn) close() {
 
 func (h *HTTPClientConn) oneTimeRead() (status string, d []byte) {
 	buf := Read + h.Address
-	data := append([]byte(buf), d[:]...)
 	// send data via HTTP Post
-	rData, err := postBytes(http.MethodPost, postURL, []byte(data), host)
+	rData, err := postBytes(http.MethodPost, postURL, []byte(buf), host)
 
 	if err != nil {
 		fmt.Println("Error response from HTTP Server")
 	}
 
 	status = string(rData[:1])
-	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:1])))
-	return status, rData[1:]
+	if status == Closed || status == NoData {
+		d = []byte("")
+	} else if status == Data {
+		d = rData[1:]
+		fmt.Printf("Remote Response: %s\n", lookupStatus(status))
+	}
+	return status, d
 }
 
 func (h *HTTPClientConn) read() {
-	s, d := h.oneTimeRead()
+	for {
+		s, d := h.oneTimeRead()
 
-	if s == Closed {
-		h.Status = Closed
-		return
-	}
+		if s == Closed {
+			h.Status = Closed
+			fmt.Printf("Remote Response: Closed")
+			return
+		}
 
-	if s == Data {
-		h.LocalConn.Write(d)
+		if s == Data {
+			h.LocalConn.Write(d)
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
-	time.Sleep(2 * time.Millisecond)
 }
 
 func getServer() Server {
@@ -195,6 +203,7 @@ func clientToHTTP(conn net.Conn, address string) {
 
 	if status != Connected {
 		httpConn.LocalConn.Close()
+		fmt.Printf("Can not connect to remote: %s\n", address)
 		return
 	}
 

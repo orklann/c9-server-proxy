@@ -24,7 +24,6 @@ func (h *HTTPServerConn) read() {
 			fmt.Printf("%s\n", "Remote closed connection")
 			h.Status = Closed
 			h.RemoteConn.Close()
-			delete(connections, h.Address)
 			break
 		}
 		h.Data = append(h.Data, data[:read])
@@ -33,7 +32,7 @@ func (h *HTTPServerConn) read() {
 }
 
 var (
-	connections = make(map[string]HTTPServerConn)
+	connections = make(map[string]*HTTPServerConn)
 )
 
 // Connection Status
@@ -54,6 +53,7 @@ const (
 )
 
 func lookupStatus(s string) string {
+	fmt.Printf("Status: %s\n", s)
 	if s == Connect {
 		return "Connected"
 	} else if s == NoData {
@@ -89,7 +89,7 @@ func parseRequest(r []byte) (ver string, key string, dst string, l int) {
 
 	dst = strings.Split(addr, "=>")[1]
 
-	return ver, addr, dst, l
+	return ver, addr, dst, l + 1
 }
 
 func connsHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +97,7 @@ func connsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("New Request to %s\n", r.RequestURI)
+	//fmt.Printf("New Request to %s\n", r.RequestURI)
 
 	body, err := ioutil.ReadAll(r.Body)
 
@@ -108,7 +108,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	ver, key, dst, l := parseRequest(body)
 
-	fmt.Printf("Ver: %s Dst: %s len: %d key:%s\n", ver, dst, l, key)
+	//fmt.Printf("Ver: %s Dst: %s len: %d key:%s\n", ver, dst, l, key)
 
 	if ver == Connect {
 		if _, ok := connections[key]; !ok {
@@ -119,7 +119,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 				fmt.Printf("%s\n", errMsg)
 				return
 			}
-			httpServerConn := HTTPServerConn{Address: key, RemoteConn: remote, Data: make([][]byte, 100)}
+			httpServerConn := &HTTPServerConn{Address: key, RemoteConn: remote}
 			connections[key] = httpServerConn
 			go httpServerConn.read()
 		}
@@ -128,7 +128,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else if ver == Send {
 		if httpServerConn, ok := connections[key]; ok {
 			//fmt.Printf("***[%s]***\n", string(body[:]))
-			httpServerConn.RemoteConn.Write(body[:])
+			httpServerConn.RemoteConn.Write(body[l:])
 			w.Write([]byte("Sent"))
 		}
 	} else if ver == Close {
@@ -137,6 +137,27 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			delete(connections, key)
 			w.Write([]byte("Closed"))
 		}
+	} else if ver == Read {
+		if httpServerConn, ok := connections[key]; ok {
+			if len(httpServerConn.Data) > 0 {
+				status := Data
+				buf := append([]byte(status), httpServerConn.Data[0]...)
+				httpServerConn.Data = httpServerConn.Data[1:]
+				w.Write(buf)
+				return
+			} else if len(httpServerConn.Data) == 0 {
+				status := NoData
+				w.Write([]byte(status))
+				return
+			}
+
+			if len(httpServerConn.Data) == 0 && httpServerConn.Status == Closed {
+				status := Closed
+				w.Write([]byte(status))
+				return
+			}
+		}
+
 	}
 
 	// Doc: https://golang.org/pkg/net/http/
