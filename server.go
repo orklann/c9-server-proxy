@@ -24,6 +24,7 @@ const (
 	NoData    = "N"
 	Closed    = "X"
 	Sent      = "S"
+	Data      = "D"
 )
 
 // Connection actions

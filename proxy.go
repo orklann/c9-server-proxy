@@ -20,6 +20,7 @@ const (
 	NoData    = "N"
 	Closed    = "X"
 	Sent      = "S"
+	Data      = "D"
 )
 
 // Connection actions
@@ -39,6 +40,8 @@ func lookupStatus(s string) string {
 		return "Closed"
 	} else if s == Sent {
 		return "Sent"
+	} else if s == Data {
+		return "Data"
 	}
 
 	return "Unknown"
@@ -90,6 +93,20 @@ func (h *HTTPClientConn) send(d []byte) string {
 
 	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:])))
 	return lookupStatus(string(rData[:]))
+}
+
+func (h *HTTPClientConn) read() []byte {
+	buf := Read + h.Address
+	data := append([]byte(buf), d[:]...)
+	// send data via HTTP Post
+	rData, err := postBytes(http.MethodPost, postURL, []byte(data), host)
+
+	if err != nil {
+		fmt.Println("Error response from HTTP Server")
+	}
+
+	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:1])))
+	return rData[1:]
 }
 
 func getServer() Server {
@@ -148,7 +165,13 @@ func postBytes(method string, url string, data []byte, host string) ([]byte, err
 
 func clientToHTTP(conn net.Conn, address string) {
 	httpConn := HTTPClientConn{Address: address, LocalConn: conn}
-	httpConn.connect()
+	status := httpConn.connect()
+
+	if status != Connected {
+		httpConn.LocalConn.Close()
+		return
+	}
+
 	for {
 		data := make([]byte, 1024*1024)
 		read, err := conn.Read(data)
@@ -158,7 +181,6 @@ func clientToHTTP(conn net.Conn, address string) {
 		}
 
 		httpConn.send(data[:read])
-		//conn.Write(rData)
 	}
 }
 
