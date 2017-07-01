@@ -16,7 +16,6 @@ type HTTPServerConn struct {
 
 var (
 	connections = make(map[string]HTTPServerConn)
-	//buffers     = make(map[string][]byte)
 )
 
 // Connection Status
@@ -24,6 +23,7 @@ const (
 	Connected = "C"
 	NoData    = "N"
 	Closed    = "X"
+	Sent      = "S"
 )
 
 // Connection actions
@@ -41,6 +41,8 @@ func lookupStatus(s string) string {
 		return "NoData"
 	} else if s == Closed {
 		return "Closed"
+	} else if s == Sent {
+		return "Sent"
 	}
 
 	return "Unknown"
@@ -77,7 +79,6 @@ func parseRequest(r []byte) (ver string, key string, dst string, l int) {
 }
 
 func connsHandler(w http.ResponseWriter, r *http.Request) {
-
 	fmt.Fprintf(w, "Current connections: %d", len(connections))
 }
 
@@ -107,10 +108,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			httpServerConn := HTTPServerConn{RemoteConn: remote, Data: make([][]byte, 100)}
 			connections[key] = httpServerConn
 		}
-	}
-	fmt.Printf("Connections: %d\n", len(connections))
+		fmt.Printf("Connections: %d\n", len(connections))
 
-	w.Write([]byte(Connected))
+		w.Write([]byte(Connected))
+	} else if ver == Send {
+		if _, ok := connections[key]; ok {
+			fmt.Printf("***[%s]***\n", string(body[:]))
+			w.Write([]byte("Sent"))
+		}
+	}
+
 	return
 	/*
 	   remoteConn := connections[key]
