@@ -16,17 +16,29 @@ import (
 
 // Connection Status
 const (
-	Connected = 1
-	NoData    = 2
-	Closed    = 3
+	Connected = "C"
+	NoData    = "N"
+	Closed    = "X"
 )
 
 // Connection actions
 const (
-	Connect = 1
-	Get     = 2
-	Close   = 3
+	Connect = "C"
+	Read    = "R"
+	Close   = "X"
 )
+
+func lookupStatus(s string) string {
+	if s == Connect {
+		return "Connected"
+	} else if s == NoData {
+		return "NoData"
+	} else if s == Closed {
+		return "Closed"
+	}
+
+	return "Unknown"
+}
 
 const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.96 Safari/537.36"
 
@@ -41,6 +53,24 @@ var (
 type Server struct {
 	Host string `json:"host"`
 	URL  string `json:"url"`
+}
+
+type HTTPClientConn struct {
+	Address   string
+	LocalConn net.Conn
+	Status    int
+}
+
+func (h *HTTPClientConn) connect() {
+	buf := Connect + h.Address
+	// send data via HTTP Post
+	rData, err := postBytes(http.MethodPost, postURL, []byte(buf), host)
+
+	if err != nil {
+		fmt.Println("Error response from HTTP Server")
+	}
+
+	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:])))
 }
 
 func getServer() Server {
@@ -98,28 +128,30 @@ func postBytes(method string, url string, data []byte, host string) ([]byte, err
 }
 
 func clientToHTTP(conn net.Conn, address string) {
-	addr := []byte(address)
-	for {
-		data := make([]byte, 1024*1024)
-		read, err := conn.Read(data)
-		if err != nil {
-			fmt.Println("Client closed connection")
-			conn.Close()
-		}
+	httpConn := HTTPClientConn{Address: address, LocalConn: conn}
+	httpConn.connect()
+	/*addr := []byte(address)
+	  for {
+	      data := make([]byte, 1024*1024)
+	      read, err := conn.Read(data)
+	      if err != nil {
+	          fmt.Println("Client closed connection")
+	          conn.Close()
+	      }
 
-		fmt.Printf("***\n%s\n**END**\n", string(data[:read]))
-		buf := append(addr, data[:read]...)
-		// send data via HTTP Post
-		rData, err := postBytes(http.MethodPost, postURL, buf, host)
+	      fmt.Printf("***\n%s\n**END**\n", string(data[:read]))
+	      buf := append(addr, data[:read]...)
+	      // send data via HTTP Post
+	      rData, err := postBytes(http.MethodPost, postURL, buf, host)
 
-		if err != nil {
-			fmt.Println("Error response from HTTP Server")
-		}
+	      if err != nil {
+	          fmt.Println("Error response from HTTP Server")
+	      }
 
-		fmt.Printf("Get %d bytes from HTTP Server\n", len(rData))
-		conn.Write(rData)
+	      fmt.Printf("Get %d bytes from HTTP Server\n", len(rData))
+	      conn.Write(rData)
 
-	}
+	  }*/
 }
 
 func handleConn(conn net.Conn, src net.IP, srcPort int, dst net.IP, dstPort int) {

@@ -14,6 +14,32 @@ var (
 	//buffers     = make(map[string][]byte)
 )
 
+// Connection Status
+const (
+	Connected = "C"
+	NoData    = "N"
+	Closed    = "X"
+)
+
+// Connection actions
+const (
+	Connect = "C"
+	Read    = "R"
+	Close   = "X"
+)
+
+func lookupStatus(s string) string {
+	if s == Connect {
+		return "Connected"
+	} else if s == NoData {
+		return "NoData"
+	} else if s == Closed {
+		return "Closed"
+	}
+
+	return "Unknown"
+}
+
 func releaseConnection(key string) {
 	if v, ok := connections[key]; ok {
 		v.Close()
@@ -22,9 +48,10 @@ func releaseConnection(key string) {
 }
 
 // Parse destination address
-func parseRequest(r []byte) (key string, dst string, l int) {
+func parseRequest(r []byte) (ver string, key string, dst string, l int) {
 	addr := ""
-	for _, v := range r {
+	ver = string(r[:1])
+	for _, v := range r[1:] {
 		l++
 		if v == 's' || v == 'd' {
 			continue
@@ -40,7 +67,7 @@ func parseRequest(r []byte) (key string, dst string, l int) {
 
 	dst = strings.Split(addr, "=>")[1]
 
-	return addr, dst, l
+	return ver, addr, dst, l
 }
 
 func connsHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,23 +85,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, dst, l := parseRequest(body)
+	ver, key, dst, l := parseRequest(body)
 
-	fmt.Printf("Dst: %s len: %d key:%s\n", dst, l, key)
+	fmt.Printf("Ver: %s Dst: %s len: %d key:%s\n", ver, dst, l, key)
 
-	if _, ok := connections[key]; !ok {
-		remote, err := net.Dial("tcp", dst)
-		if err != nil {
-			errMsg := "Failt to connect: " + err.Error()
-			fmt.Fprintf(w, "%s", errMsg)
-			fmt.Printf("%s\n", errMsg)
-			return
+	if ver == Connect {
+		if _, ok := connections[key]; !ok {
+			remote, err := net.Dial("tcp", dst)
+			if err != nil {
+				errMsg := "Failt to connect: " + err.Error()
+				fmt.Fprintf(w, "%s", errMsg)
+				fmt.Printf("%s\n", errMsg)
+				return
+			}
+			connections[key] = remote
 		}
-		connections[key] = remote
 	}
-
 	fmt.Printf("Connections: %d\n", len(connections))
 
+	w.Write([]byte(Connected))
+	return
 	remoteConn := connections[key]
 	_, err = remoteConn.Write(body[l:])
 
