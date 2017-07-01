@@ -12,6 +12,7 @@ import (
 	"os"
 	"pf"
 	"strconv"
+	"time"
 )
 
 // Connection Status
@@ -95,6 +96,16 @@ func (h *HTTPClientConn) send(d []byte) string {
 	return lookupStatus(string(rData[:]))
 }
 
+func (h *HTTPClientConn) close() {
+	buf := Close + h.Address
+	// send data via HTTP Post
+	_, err := postBytes(http.MethodPost, postURL, []byte(buf), host)
+
+	if err != nil {
+		fmt.Println("Error response from HTTP Server")
+	}
+}
+
 func (h *HTTPClientConn) oneTimeRead() (status string, d []byte) {
 	buf := Read + h.Address
 	data := append([]byte(buf), d[:]...)
@@ -108,6 +119,20 @@ func (h *HTTPClientConn) oneTimeRead() (status string, d []byte) {
 	status = string(rData[:1])
 	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:1])))
 	return status, rData[1:]
+}
+
+func (h *HTTPClientConn) read() {
+	s, d := h.oneTimeRead()
+
+	if s == Closed {
+		h.Status = Closed
+		return
+	}
+
+	if s == Data {
+		h.LocalConn.Write(d)
+	}
+	time.Sleep(2 * time.Millisecond)
 }
 
 func getServer() Server {
@@ -165,7 +190,7 @@ func postBytes(method string, url string, data []byte, host string) ([]byte, err
 }
 
 func clientToHTTP(conn net.Conn, address string) {
-	httpConn := HTTPClientConn{Address: address, LocalConn: conn}
+	httpConn := HTTPClientConn{Address: address, LocalConn: conn, Status: "Init"}
 	status := httpConn.connect()
 
 	if status != Connected {
@@ -173,15 +198,23 @@ func clientToHTTP(conn net.Conn, address string) {
 		return
 	}
 
+	go httpConn.read()
+
 	for {
 		data := make([]byte, 1024*1024)
 		read, err := conn.Read(data)
 		if err != nil {
 			fmt.Println("Client closed connection")
 			conn.Close()
+			httpConn.close()
 		}
 
 		httpConn.send(data[:read])
+
+		if httpConn.Status == Closed {
+			httpConn.LocalConn.Close()
+			return
+		}
 	}
 }
 
