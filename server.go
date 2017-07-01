@@ -12,6 +12,24 @@ import (
 type HTTPServerConn struct {
 	RemoteConn net.Conn
 	Data       [][]byte
+	Status     string
+	Address    string
+}
+
+func (h *HTTPServerConn) read() {
+	for {
+		data := make([]byte, 1024*1024*10)
+		read, err := h.RemoteConn.Read(data)
+		if err != nil {
+			fmt.Printf("%s\n", "Remote closed connection")
+			h.Status = Closed
+			h.RemoteConn.Close()
+			delete(connections, h.Address)
+			break
+		}
+		h.Data = append(h.Data, data[:read])
+		fmt.Printf("Data len: %d\n", len(h.Data))
+	}
 }
 
 var (
@@ -44,16 +62,11 @@ func lookupStatus(s string) string {
 		return "Closed"
 	} else if s == Sent {
 		return "Sent"
+	} else if s == Data {
+		return "Data"
 	}
 
 	return "Unknown"
-}
-
-func releaseConnection(key string) {
-	if v, ok := connections[key]; ok {
-		v.RemoteConn.Close()
-		delete(connections, key)
-	}
 }
 
 // Parse destination address
@@ -106,46 +119,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 				fmt.Printf("%s\n", errMsg)
 				return
 			}
-			httpServerConn := HTTPServerConn{RemoteConn: remote, Data: make([][]byte, 100)}
+			httpServerConn := HTTPServerConn{Address: key, RemoteConn: remote, Data: make([][]byte, 100)}
 			connections[key] = httpServerConn
+			go httpServerConn.read()
 		}
 		fmt.Printf("Connections: %d\n", len(connections))
-
 		w.Write([]byte(Connected))
 	} else if ver == Send {
-		if _, ok := connections[key]; ok {
-			fmt.Printf("***[%s]***\n", string(body[:]))
+		if httpServerConn, ok := connections[key]; ok {
+			//fmt.Printf("***[%s]***\n", string(body[:]))
+			httpServerConn.RemoteConn.Write(body[:])
 			w.Write([]byte("Sent"))
+		}
+	} else if ver == Close {
+		if httpServerConn, ok := connections[key]; ok {
+			httpServerConn.RemoteConn.Close()
+			delete(connections, key)
+			w.Write([]byte("Closed"))
 		}
 	}
 
-	return
-	/*
-	   remoteConn := connections[key]
-	   _, err = remoteConn.Write(body[l:])
-
-	   if err != nil {
-	       fmt.Printf("%s\n", "Write to remote fail")
-	       fmt.Fprintf(w, "%s", "Write to remote fail")
-	       return
-	   }
-
-	   buf := make([]byte, 0, 1024*1024*10)
-	   for {
-	       data := make([]byte, 1024*1024)
-	       read, err := remoteConn.Read(data)
-	       if err != nil {
-	           fmt.Printf("%s\n", "Remote closed connection")
-	           //fmt.Fprintf(w, "%s", "CLOSED")
-	           //releaseConnection(key)
-	           break
-	       }
-	       fmt.Printf("Read %d\n", read)
-	       buf = append(buf, data[:read]...)
-	   }
-
-	   w.Write(buf)
-	   fmt.Printf("Response %d bytes\n", len(buf))*/
 	// Doc: https://golang.org/pkg/net/http/
 	// For incoming requests, the Host header is promoted to the
 	// Request.Host field and removed from the Header map.
