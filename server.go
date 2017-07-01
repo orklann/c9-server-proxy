@@ -15,7 +15,7 @@ type HTTPServerConn struct {
 }
 
 var (
-	connections = make(map[string]net.Conn)
+	connections = make(map[string]HTTPServerConn)
 	//buffers     = make(map[string][]byte)
 )
 
@@ -47,7 +47,7 @@ func lookupStatus(s string) string {
 
 func releaseConnection(key string) {
 	if v, ok := connections[key]; ok {
-		v.Close()
+		v.RemoteConn.Close()
 		delete(connections, key)
 	}
 }
@@ -103,38 +103,40 @@ func handler(w http.ResponseWriter, r *http.Request) {
 				fmt.Printf("%s\n", errMsg)
 				return
 			}
-			connections[key] = remote
+			httpServerConn := HTTPServerConn{RemoteConn: remote, Data: make([][]byte, 100)}
+			connections[key] = httpServerConn
 		}
 	}
 	fmt.Printf("Connections: %d\n", len(connections))
 
 	w.Write([]byte(Connected))
 	return
-	remoteConn := connections[key]
-	_, err = remoteConn.Write(body[l:])
+	/*
+	   remoteConn := connections[key]
+	   _, err = remoteConn.Write(body[l:])
 
-	if err != nil {
-		fmt.Printf("%s\n", "Write to remote fail")
-		fmt.Fprintf(w, "%s", "Write to remote fail")
-		return
-	}
+	   if err != nil {
+	       fmt.Printf("%s\n", "Write to remote fail")
+	       fmt.Fprintf(w, "%s", "Write to remote fail")
+	       return
+	   }
 
-	buf := make([]byte, 0, 1024*1024*10)
-	for {
-		data := make([]byte, 1024*1024)
-		read, err := remoteConn.Read(data)
-		if err != nil {
-			fmt.Printf("%s\n", "Remote closed connection")
-			//fmt.Fprintf(w, "%s", "CLOSED")
-			//releaseConnection(key)
-			break
-		}
-		fmt.Printf("Read %d\n", read)
-		buf = append(buf, data[:read]...)
-	}
+	   buf := make([]byte, 0, 1024*1024*10)
+	   for {
+	       data := make([]byte, 1024*1024)
+	       read, err := remoteConn.Read(data)
+	       if err != nil {
+	           fmt.Printf("%s\n", "Remote closed connection")
+	           //fmt.Fprintf(w, "%s", "CLOSED")
+	           //releaseConnection(key)
+	           break
+	       }
+	       fmt.Printf("Read %d\n", read)
+	       buf = append(buf, data[:read]...)
+	   }
 
-	w.Write(buf)
-	fmt.Printf("Response %d bytes\n", len(buf))
+	   w.Write(buf)
+	   fmt.Printf("Response %d bytes\n", len(buf))*/
 	// Doc: https://golang.org/pkg/net/http/
 	// For incoming requests, the Host header is promoted to the
 	// Request.Host field and removed from the Header map.
