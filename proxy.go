@@ -207,6 +207,7 @@ func clientToHTTP(conn net.Conn, address string) {
 			fmt.Println("Client closed connection")
 			conn.Close()
 			httpConn.close()
+			return
 		}
 
 		httpConn.send(data[:read])
