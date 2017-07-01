@@ -25,6 +25,7 @@ const (
 const (
 	Connect = "C"
 	Read    = "R"
+	Sent    = "S"
 	Close   = "X"
 )
 

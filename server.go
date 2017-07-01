@@ -30,6 +30,7 @@ const (
 const (
 	Connect = "C"
 	Read    = "R"
+	Send    = "S"
 	Close   = "X"
 )
 
