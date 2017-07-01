@@ -52,9 +52,9 @@ func lookupStatus(s string) string {
 const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.96 Safari/537.36"
 
 var (
-	testing  = true
-	host     = "www.google.com"
-	postURL  = "http://localhost:8080/proxy"
+	testing  = false
+	host     = "web-proxy-aaron-threcius.c9users.io"
+	postURL  = "https://web-proxy-aaron-threcius.c9users.io"
 	testURL  = "http://localhost:8080/proxy"
 	testHost = "electric-abode-166904.appspot.com"
 )
