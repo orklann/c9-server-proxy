@@ -65,7 +65,7 @@ type Server struct {
 type HTTPClientConn struct {
 	Address   string
 	LocalConn net.Conn
-	Status    int
+	Status    string
 }
 
 func (h *HTTPClientConn) connect() string {
@@ -95,7 +95,7 @@ func (h *HTTPClientConn) send(d []byte) string {
 	return lookupStatus(string(rData[:]))
 }
 
-func (h *HTTPClientConn) read() []byte {
+func (h *HTTPClientConn) oneTimeRead() (status string, d []byte) {
 	buf := Read + h.Address
 	data := append([]byte(buf), d[:]...)
 	// send data via HTTP Post
@@ -105,8 +105,9 @@ func (h *HTTPClientConn) read() []byte {
 		fmt.Println("Error response from HTTP Server")
 	}
 
+	status = string(rData[:1])
 	fmt.Printf("Remote Response: %s\n", lookupStatus(string(rData[:1])))
-	return rData[1:]
+	return status, rData[1:]
 }
 
 func getServer() Server {
