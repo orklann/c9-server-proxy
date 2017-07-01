@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+type HTTPServerConn struct {
+	RemoteConn net.Conn
+	Data       [][]byte
+}
+
 var (
 	connections = make(map[string]net.Conn)
 	//buffers     = make(map[string][]byte)
